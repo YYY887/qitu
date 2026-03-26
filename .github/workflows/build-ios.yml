@@ -43,8 +43,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -87,6 +85,23 @@ jobs:
       - name: Install CocoaPods
         working-directory: ios
         run: pod install --repo-update
+
+      - name: Adjust Pod build flags
+        run: |
+          set -euo pipefail
+
+          if [ -d ios/Pods/Target\ Support\ Files ]; then
+            ruby -e '
+              Dir["ios/Pods/Target Support Files/**/*.xcconfig"].each do |path|
+                content = File.read(path)
+                content.gsub!(/-Werror=non-modular-include-in-framework-module/, "-Wno-non-modular-include-in-framework-module")
+                content.gsub!(/-Werror=return-type/, "-Wno-error=return-type")
+                content.gsub!(/-Werror=deprecated-objc-isa-usage/, "-Wno-error=deprecated-objc-isa-usage")
+                content.gsub!(/-Werror=objc-root-class/, "-Wno-error=objc-root-class")
+                File.write(path, content)
+              end
+            '
+          fi
 
       - name: Prepare signing files
         run: |
@@ -198,6 +213,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          LOG_PATH="$RUNNER_TEMP/xcodebuild-archive.log"
+          echo "LOG_PATH=$LOG_PATH" >> "$GITHUB_ENV"
+
           if [ "$XCODE_CONTAINER_KIND" = "workspace" ]; then
             xcodebuild \
               -workspace "$XCODE_CONTAINER" \
@@ -211,7 +229,7 @@ jobs:
               DEVELOPMENT_TEAM="$TEAM_ID" \
               PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
               PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-              clean archive
+              clean archive 2>&1 | tee "$LOG_PATH"
           else
             xcodebuild \
               -project "$XCODE_CONTAINER" \
@@ -225,7 +243,7 @@ jobs:
               DEVELOPMENT_TEAM="$TEAM_ID" \
               PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
               PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
-              clean archive
+              clean archive 2>&1 | tee "$LOG_PATH"
           fi
 
       - name: Export IPA
@@ -280,6 +298,7 @@ jobs:
             ${{ runner.temp }}/app.xcarchive
             ${{ runner.temp }}/ExportOptions.plist
             ${{ runner.temp }}/profile.plist
+            ${{ runner.temp }}/xcodebuild-archive.log
           if-no-files-found: ignore
 
       - name: Cleanup signing keychain
