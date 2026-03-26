@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     env:
       CERT_DIR: 证书_00008120-000908503A31A01E
@@ -76,11 +76,24 @@ jobs:
 
           BUNDLE_ID="$(node -e "const app=require('./app.json'); console.log(app.expo?.ios?.bundleIdentifier || '')")"
           if [ -z "$BUNDLE_ID" ]; then
-            echo "未读取到 bundleIdentifier"
+            echo "Failed to read bundleIdentifier from app.json"
             exit 1
           fi
 
           echo "BUNDLE_ID=$BUNDLE_ID" >> "$GITHUB_ENV"
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+
+          for path in /Applications/Xcode_16.4.app /Applications/Xcode_16.3.app /Applications/Xcode_16.2.app /Applications/Xcode.app; do
+            if [ -d "$path" ]; then
+              sudo xcode-select -switch "$path"
+              break
+            fi
+          done
+
+          xcodebuild -version
 
       - name: Install CocoaPods
         working-directory: ios
@@ -114,16 +127,16 @@ jobs:
             python3 -c 'import base64, os, pathlib; pathlib.Path(os.environ["CERT_FILE"]).write_bytes(base64.b64decode(os.environ["IOS_P12_BASE64"])); pathlib.Path(os.environ["PROFILE_FILE"]).write_bytes(base64.b64decode(os.environ["IOS_MOBILEPROVISION_BASE64"]))'
             CERT_PASSWORD="${{ secrets.IOS_P12_PASSWORD }}"
           else
-            CERT_FILE="$CERT_DIR/证书文件.p12"
-            PROFILE_FILE="$CERT_DIR/描述文件.mobileprovision"
-            PASSWORD_FILE="$CERT_DIR/密码.txt"
+            CERT_FILE="$(find "$CERT_DIR" -maxdepth 1 -type f -name '*.p12' | head -n 1)"
+            PROFILE_FILE="$(find "$CERT_DIR" -maxdepth 1 -type f -name '*.mobileprovision' | head -n 1)"
+            PASSWORD_FILE="$(find "$CERT_DIR" -maxdepth 1 -type f -name '*.txt' | head -n 1)"
 
             if [ ! -f "$CERT_FILE" ] || [ ! -f "$PROFILE_FILE" ] || [ ! -f "$PASSWORD_FILE" ]; then
-              echo "缺少 iOS 签名文件，需提供仓库内证书目录或 GitHub Secrets。"
+              echo "Missing iOS signing files. Provide the certificate directory in the repository or GitHub Secrets."
               exit 1
             fi
 
-            CERT_PASSWORD="$(sed 's/^密码[:：]//' "$PASSWORD_FILE" | tr -d '\r\n[:space:]')"
+            CERT_PASSWORD="$(sed -E 's/.*[Pp]assword[:：]?//; s/.*密码[:：]?//' "$PASSWORD_FILE" | tr -d '\r\n[:space:]')"
           fi
 
           printf 'CERT_FILE=%s\n' "$CERT_FILE" >> "$GITHUB_ENV"
@@ -156,7 +169,7 @@ jobs:
           SIGN_IDENTITY="$(security find-identity -v -p codesigning build.keychain | awk -F'\"' '/\"/ {print $2; exit}')"
 
           if [ -z "$SIGN_IDENTITY" ]; then
-            echo "未找到可用的签名证书"
+            echo "No valid signing identity was found in the imported keychain"
             security find-identity -v -p codesigning build.keychain || true
             exit 1
           fi
@@ -198,12 +211,12 @@ jobs:
             echo "XCODE_CONTAINER=$PROJECT" >> "$GITHUB_ENV"
             echo "XCODE_CONTAINER_KIND=project" >> "$GITHUB_ENV"
           else
-            echo "未找到 iOS 原生工程文件"
+            echo "No iOS workspace or project was found"
             exit 1
           fi
 
           if [ -z "$SCHEME" ]; then
-            echo "未找到可用的主应用 Scheme"
+            echo "No usable application scheme was found"
             exit 1
           fi
 
