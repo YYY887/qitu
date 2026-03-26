@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.videoscms'
+    namespace 'wb.uniysc1547.tool1'
     defaultConfig {
-        applicationId 'com.anonymous.videoscms'
+        applicationId 'wb.uniysc1547.tool1'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

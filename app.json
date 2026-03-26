@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.videoscms"
+      "bundleIdentifier": "wb.uniysc1547.tool1"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +24,7 @@
         "backgroundColor": "#f4f1ea"
       },
       "permissions": [],
-      "package": "com.anonymous.videoscms"
+      "package": "wb.uniysc1547.tool1"
     },
     "web": {
       "bundler": "metro"

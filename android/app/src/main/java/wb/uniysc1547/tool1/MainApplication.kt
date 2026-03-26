@@ -1,4 +1,4 @@
-package com.anonymous.videoscms
+package wb.uniysc1547.tool1
 
 import android.app.Application
 import android.content.res.Configuration

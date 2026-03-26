@@ -1,4 +1,4 @@
-name: Build iOS IPA
+name: 打包 iOS IPA
 
 on:
   workflow_dispatch:
@@ -38,25 +38,25 @@ jobs:
         shell: bash
 
     steps:
-      - name: Checkout
+      - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
+      - name: 安装 pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node
+      - name: 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
-      - name: Setup Ruby
+      - name: 安装 Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
           bundler-cache: false
 
-      - name: Cache CocoaPods
+      - name: 缓存 CocoaPods
         uses: actions/cache@v4
         with:
           path: |
@@ -67,22 +67,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      - name: Resolve app config
+      - name: 读取应用配置
         run: |
           set -euo pipefail
 
           BUNDLE_ID="$(node -e "const app=require('./app.json'); console.log(app.expo?.ios?.bundleIdentifier || '')")"
           if [ -z "$BUNDLE_ID" ]; then
-            echo "Failed to read bundleIdentifier from app.json"
+            echo "未能从 app.json 读取 bundleIdentifier"
             exit 1
           fi
 
           echo "BUNDLE_ID=$BUNDLE_ID" >> "$GITHUB_ENV"
 
-      - name: Select Xcode
+      - name: 选择 Xcode
         run: |
           set -euo pipefail
 
@@ -95,11 +95,11 @@ jobs:
 
           xcodebuild -version
 
-      - name: Install CocoaPods
+      - name: 安装 CocoaPods
         working-directory: ios
         run: pod install --repo-update
 
-      - name: Adjust Pod build flags
+      - name: 调整 Pod 编译参数
         run: |
           set -euo pipefail
 
@@ -116,7 +116,7 @@ jobs:
             '
           fi
 
-      - name: Prepare signing files
+      - name: 准备签名文件
         run: |
           set -euo pipefail
 
@@ -132,7 +132,7 @@ jobs:
             PASSWORD_FILE="$(find "$CERT_DIR" -maxdepth 1 -type f -name '*.txt' | head -n 1)"
 
             if [ ! -f "$CERT_FILE" ] || [ ! -f "$PROFILE_FILE" ] || [ ! -f "$PASSWORD_FILE" ]; then
-              echo "Missing iOS signing files. Provide the certificate directory in the repository or GitHub Secrets."
+              echo "缺少 iOS 签名文件，请提供仓库内证书目录或 GitHub Secrets。"
               exit 1
             fi
 
@@ -146,7 +146,7 @@ jobs:
           IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
           IOS_MOBILEPROVISION_BASE64: ${{ secrets.IOS_MOBILEPROVISION_BASE64 }}
 
-      - name: Import signing certificate and provisioning profile
+      - name: 导入签名证书和描述文件
         run: |
           set -euo pipefail
 
@@ -169,7 +169,7 @@ jobs:
           SIGN_IDENTITY="$(security find-identity -v -p codesigning build.keychain | awk -F'\"' '/\"/ {print $2; exit}')"
 
           if [ -z "$SIGN_IDENTITY" ]; then
-            echo "No valid signing identity was found in the imported keychain"
+            echo "导入的 keychain 中未找到可用签名证书"
             security find-identity -v -p codesigning build.keychain || true
             exit 1
           fi
@@ -192,7 +192,7 @@ jobs:
             echo "SIGN_IDENTITY=$SIGN_IDENTITY"
           } >> "$GITHUB_ENV"
 
-      - name: Resolve Xcode container and scheme
+      - name: 解析工程容器和 Scheme
         run: |
           set -euo pipefail
 
@@ -211,18 +211,18 @@ jobs:
             echo "XCODE_CONTAINER=$PROJECT" >> "$GITHUB_ENV"
             echo "XCODE_CONTAINER_KIND=project" >> "$GITHUB_ENV"
           else
-            echo "No iOS workspace or project was found"
+            echo "未找到 iOS 原生工程文件"
             exit 1
           fi
 
           if [ -z "$SCHEME" ]; then
-            echo "No usable application scheme was found"
+            echo "未找到可用的应用 Scheme"
             exit 1
           fi
 
           echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
 
-      - name: Archive app
+      - name: 归档应用
         run: |
           set -euo pipefail
 
@@ -259,7 +259,7 @@ jobs:
               clean archive 2>&1 | tee "$LOG_PATH"
           fi
 
-      - name: Export IPA
+      - name: 导出 IPA
         run: |
           set -euo pipefail
 
@@ -295,14 +295,14 @@ jobs:
             -exportPath "$RUNNER_TEMP/exported" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
 
-      - name: Upload IPA artifact
+      - name: 上传 IPA 制品
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
           path: ${{ runner.temp }}/exported/*.ipa
           if-no-files-found: error
 
-      - name: Upload archive on failure
+      - name: 失败时上传调试产物
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -314,7 +314,7 @@ jobs:
             ${{ runner.temp }}/xcodebuild-archive.log
           if-no-files-found: ignore
 
-      - name: Cleanup signing keychain
+      - name: 清理签名 keychain
         if: always()
         run: |
           security delete-keychain build.keychain || true
