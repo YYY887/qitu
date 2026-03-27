@@ -20,7 +20,7 @@ import HistoryScreen from "./src/screens/HistoryScreen";
 import FavoritesScreen from "./src/screens/FavoritesScreen";
 import TabBar from "./src/components/TabBar";
 import { fetchCatalog, fetchVodDetail, splitPlaySources } from "./src/lib/cms";
-import { colors, screenStyles } from "./src/styles/theme";
+import { createScreenStyles, getTheme } from "./src/styles/theme";
 
 const DEFAULT_SOURCE = "https://jyzyapi.com/provide/vod/from/jinyingm3u8/at/json";
 const INITIAL_CATEGORIES = [{ id: "all", name: "全部" }];
@@ -29,6 +29,7 @@ const STORAGE_SOURCES_KEY = "videos_cms_saved_sources";
 const STORAGE_ACTIVE_SOURCE_KEY = "videos_cms_active_source";
 const STORAGE_FAVORITES_KEY = "videos_cms_favorites";
 const STORAGE_HISTORY_KEY = "videos_cms_history";
+const STORAGE_THEME_MODE_KEY = "videos_cms_theme_mode";
 const TABS = [
   { id: "discover", label: "发现" },
   { id: "sources", label: "源管理" },
@@ -59,6 +60,10 @@ export default function App() {
   const [favorites, setFavorites] = useState([]);
   const [history, setHistory] = useState([]);
   const [profileView, setProfileView] = useState("menu");
+  const [themeMode, setThemeMode] = useState("light");
+
+  const colors = useMemo(() => getTheme(themeMode), [themeMode]);
+  const screenStyles = useMemo(() => createScreenStyles(colors), [colors]);
 
   useEffect(() => {
     return () => {
@@ -69,11 +74,12 @@ export default function App() {
   useEffect(() => {
     const hydrateSources = async () => {
       try {
-        const [storedSourcesRaw, storedActiveSource, storedFavoritesRaw, storedHistoryRaw] = await Promise.all([
+        const [storedSourcesRaw, storedActiveSource, storedFavoritesRaw, storedHistoryRaw, storedThemeMode] = await Promise.all([
           AsyncStorage.getItem(STORAGE_SOURCES_KEY),
           AsyncStorage.getItem(STORAGE_ACTIVE_SOURCE_KEY),
           AsyncStorage.getItem(STORAGE_FAVORITES_KEY),
           AsyncStorage.getItem(STORAGE_HISTORY_KEY),
+          AsyncStorage.getItem(STORAGE_THEME_MODE_KEY),
         ]);
 
         const storedSources = storedSourcesRaw !== null ? JSON.parse(storedSourcesRaw) : null;
@@ -100,6 +106,7 @@ export default function App() {
         setSourceUrl(nextActiveSource);
         setFavorites(nextFavorites);
         setHistory(nextHistory);
+        setThemeMode(storedThemeMode === "dark" ? "dark" : "light");
         loadCatalog({
           nextSourceUrl: nextActiveSource,
           nextCategory: "all",
@@ -216,6 +223,12 @@ export default function App() {
        * 这里独立落盘，避免被收藏或源切换状态覆盖。
        */
     }
+  }, []);
+
+  const persistThemeMode = useCallback(async (nextMode) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_THEME_MODE_KEY, nextMode);
+    } catch (storageError) {}
   }, []);
 
   const upsertSource = (url, name) => {
@@ -596,19 +609,27 @@ export default function App() {
     return "我的";
   }, [profileView]);
 
+  const toggleThemeMode = useCallback(() => {
+    setThemeMode((current) => {
+      const nextMode = current === "dark" ? "light" : "dark";
+      persistThemeMode(nextMode);
+      return nextMode;
+    });
+  }, [persistThemeMode]);
+
   return (
     <SafeAreaView style={screenStyles.safeArea} edges={["top"]}>
-      <ExpoStatusBar style="dark" />
-      <StatusBar barStyle="dark-content" />
+      <ExpoStatusBar style={themeMode === "dark" ? "light" : "dark"} />
+      <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} />
 
       <View style={screenStyles.container}>
         {!selectedVideo ? (
-          <View style={styles.topBar}>
+          <View style={[styles.topBar, { backgroundColor: colors.bgSoft }]}>
             <View style={styles.topBarLeft}>
-              <Text style={styles.topBarTitle}>
+              <Text style={[styles.topBarTitle, { color: colors.textStrong }]}>
                 {activeTab === "discover" ? "歧途" : activeTab === "sources" ? "源管理" : profileTitle}
               </Text>
-              <Text style={styles.topBarText} numberOfLines={1}>
+              <Text style={[styles.topBarText, { color: colors.textMuted }]} numberOfLines={1}>
                 {activeTab === "discover"
                   ? siteName
                   : activeTab === "sources"
@@ -621,11 +642,11 @@ export default function App() {
               </Text>
             </View>
             {activeTab === "discover" ? (
-              <Text style={styles.sourceTrigger} onPress={openSourceSelector} numberOfLines={1}>
+              <Text style={[styles.sourceTrigger, { color: colors.accentSoft }]} onPress={openSourceSelector} numberOfLines={1}>
                 {activeSourceName} ▾
               </Text>
             ) : activeTab === "sources" ? (
-              <Text style={styles.addTrigger} onPress={openAddSourcePrompt}>
+              <Text style={[styles.addTrigger, { color: colors.textPrimary }]} onPress={openAddSourcePrompt}>
                 ＋
               </Text>
             ) : null}
@@ -653,6 +674,7 @@ export default function App() {
                 loadingMore={loadingMore}
                 detailLoadingId={detailLoadingId}
                 onOpenVideo={openVideo}
+                colors={colors}
                 onSearch={handleSearch}
                 onClear={handleClearSearch}
                 onSelectCategory={handleSelectCategory}
@@ -668,6 +690,7 @@ export default function App() {
               format={format}
               error={error}
               savedSources={savedSources}
+              colors={colors}
               onApplySaved={handleApplySaved}
               onDeleteSaved={handleDeleteSaved}
               onEditNote={handleEditSourceNote}
@@ -681,6 +704,9 @@ export default function App() {
                 activeSourceName={activeSourceName}
                 historyCount={history.length}
                 favoritesCount={favorites.length}
+                themeMode={themeMode}
+                colors={colors}
+                onToggleThemeMode={toggleThemeMode}
                 onOpenHistory={() => setProfileView("history")}
                 onOpenFavorites={() => setProfileView("favorites")}
               />
@@ -689,6 +715,7 @@ export default function App() {
             {profileView === "history" ? (
               <HistoryScreen
                 history={history}
+                colors={colors}
                 onBack={() => setProfileView("menu")}
                 onOpenHistory={(item) =>
                   openVideo(item, {
@@ -702,6 +729,7 @@ export default function App() {
             {profileView === "favorites" ? (
               <FavoritesScreen
                 favorites={favorites}
+                colors={colors}
                 onBack={() => setProfileView("menu")}
                 onOpenVideo={openVideo}
                 onRemoveFavorite={handleToggleFavorite}
@@ -716,6 +744,7 @@ export default function App() {
                 episode={selectedEpisode}
                 detailLoadingId={detailLoadingId}
                 isFavorite={favoriteIds.has(selectedVideo.id)}
+                colors={colors}
                 onToggleFavorite={handleToggleFavorite}
                 onTrackHistory={handleTrackHistory}
                 onBack={() => {
@@ -728,7 +757,7 @@ export default function App() {
           ) : null}
         </View>
 
-        {!selectedVideo ? <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} /> : null}
+        {!selectedVideo ? <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} colors={colors} /> : null}
       </View>
     </SafeAreaView>
   );

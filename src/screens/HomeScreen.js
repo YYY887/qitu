@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import VideoCard from "../components/VideoCard";
 import SectionHeader from "../components/SectionHeader";
-import { colors, screenStyles } from "../styles/theme";
+import { getTheme } from "../styles/theme";
 
 export default function HomeScreen({
   videos,
@@ -10,26 +10,28 @@ export default function HomeScreen({
   onOpenVideo,
   sourceName,
   onGoSources,
+  colors: themeColors,
 }) {
+  const colors = themeColors || getTheme("light");
   const featuredVideos = videos;
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Pressable style={styles.heroCompact} onPress={onGoSources}>
+    <ScrollView style={[styles.page, { backgroundColor: colors.bgSoft }]} contentContainerStyle={styles.content}>
+      <Pressable style={[styles.heroCompact, { backgroundColor: colors.overlayCard }]} onPress={onGoSources}>
         <View style={styles.heroCompactText}>
-          <Text style={styles.heroCompactLabel}>当前源</Text>
-          <Text style={styles.heroCompactTitle} numberOfLines={1}>
+          <Text style={[styles.heroCompactLabel, { color: colors.textMuted }]}>当前源</Text>
+          <Text style={[styles.heroCompactTitle, { color: colors.textPrimary }]} numberOfLines={1}>
             {sourceName}
           </Text>
         </View>
-        <Text style={styles.heroCompactArrow}>切换</Text>
+        <Text style={[styles.heroCompactArrow, { color: colors.textSecondary }]}>切换</Text>
       </Pressable>
 
-      <SectionHeader title="推荐" desc="" />
+      <SectionHeader title="推荐" desc="" colors={colors} />
       <View style={styles.grid}>
         {featuredVideos.map((item) => (
           <View key={item.id} style={styles.gridCell}>
-            <VideoCard item={item} loading={detailLoadingId === item.id} onPress={onOpenVideo} />
+            <VideoCard item={item} loading={detailLoadingId === item.id} onPress={onOpenVideo} colors={colors} />
           </View>
         ))}
       </View>
@@ -40,7 +42,6 @@ export default function HomeScreen({
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: "#d6e8ff",
   },
   content: {
     padding: 16,
@@ -62,17 +63,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroCompactLabel: {
-    color: "#8a92a1",
     fontSize: 11,
   },
   heroCompactTitle: {
     marginTop: 4,
-    color: "#111111",
     fontSize: 15,
     fontWeight: "700",
   },
   heroCompactArrow: {
-    color: "#5b6472",
     fontSize: 12,
     fontWeight: "700",
   },

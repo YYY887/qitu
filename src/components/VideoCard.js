@@ -1,8 +1,10 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "../styles/theme";
+import { getTheme } from "../styles/theme";
 
-export default function VideoCard({ item, loading, onPress }) {
+export default function VideoCard({ item, loading, onPress, colors: themeColors }) {
+  const colors = themeColors || getTheme("light");
+
   return (
     <Pressable style={styles.card} onPress={() => onPress(item)}>
       <View style={styles.posterWrap}>
@@ -23,10 +25,10 @@ export default function VideoCard({ item, loading, onPress }) {
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, { color: colors.textStrong }]} numberOfLines={1}>
           {item.name}
         </Text>
-        {loading ? <Text style={styles.hint}>加载中...</Text> : null}
+        {loading ? <Text style={[styles.hint, { color: colors.textMuted }]}>加载中...</Text> : null}
       </View>
     </Pressable>
   );
@@ -82,12 +84,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#101318",
     lineHeight: 17,
   },
   hint: {
     marginTop: 4,
-    color: "#8d95a3",
     fontSize: 10,
   },
 });
