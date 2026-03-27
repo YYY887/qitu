@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import VideoCard from "../components/VideoCard";
-import { colors } from "../styles/theme";
+import { getTheme } from "../styles/theme";
 
 export default function DiscoverScreen({
   categories = [],
@@ -16,18 +16,20 @@ export default function DiscoverScreen({
   loading,
   loadingMore,
   detailLoadingId,
+  colors: themeColors,
   onOpenVideo,
   onSearch,
   onClear,
   onSelectCategory,
   onLoadMore,
 }) {
+  const colors = themeColors || getTheme("light");
   const listRef = useRef(null);
   const insets = useSafeAreaInsets();
   const [showToTop, setShowToTop] = useState(false);
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: colors.bgSoft }]}>
       <FlatList
         ref={listRef}
         data={videos}
@@ -49,7 +51,7 @@ export default function DiscoverScreen({
           <View style={styles.headerContainer}>
             {loading ? (
               <View pointerEvents="none" style={styles.searchingFloat}>
-                <ActivityIndicator size="small" color="#5f87f7" />
+                <ActivityIndicator size="small" color={colors.accentSoft} />
                 <Text style={styles.searchingFloatText}>搜索中</Text>
               </View>
             ) : null}
@@ -60,18 +62,18 @@ export default function DiscoverScreen({
                   onChangeText={setKeyword}
                   placeholder="搜索片名 / 演员 / 导演..."
                   placeholderTextColor={colors.textMuted}
-                  style={styles.compactInput}
+                  style={[styles.compactInput, { color: colors.textPrimary }]}
                   returnKeyType="search"
                   onSubmitEditing={onSearch}
                 />
                 {keyword?.length > 0 && (
                   <Pressable style={styles.clearIcon} onPress={onClear}>
-                    <Text style={styles.clearIconText}>✕</Text>
+                    <Text style={[styles.clearIconText, { color: colors.textSecondary }]}>✕</Text>
                   </Pressable>
                 )}
               </View>
-              <Pressable style={styles.compactSearchBtn} onPress={onSearch}>
-                <Text style={styles.compactSearchBtnText}>搜索</Text>
+              <Pressable style={[styles.compactSearchBtn, { backgroundColor: colors.overlayCard, borderColor: colors.border }]} onPress={onSearch}>
+                <Text style={[styles.compactSearchBtnText, { color: colors.textPrimary }]}>搜索</Text>
               </Pressable>
             </View>
 
@@ -86,10 +88,10 @@ export default function DiscoverScreen({
                   return (
                     <Pressable
                       key={item.id}
-                      style={[styles.miniChip, active && styles.miniChipActive]}
+                      style={[styles.miniChip, active && styles.miniChipActive, active && { borderBottomColor: colors.textPrimary }]}
                       onPress={() => onSelectCategory(item.id)}
                     >
-                      <Text style={[styles.miniChipText, active && styles.miniChipTextActive]}>
+                      <Text style={[styles.miniChipText, { color: active ? colors.textPrimary : colors.textPrimary }, active && styles.miniChipTextActive]}>
                         {item.name}
                       </Text>
                     </Pressable>
@@ -97,22 +99,22 @@ export default function DiscoverScreen({
                 })}
               </ScrollView>
               <View style={styles.resultInfoRow}>
-                <Text style={styles.resultText}>{total} 条内容</Text>
-                <Text style={styles.resultText}>{page} / {pageCount}</Text>
+                <Text style={[styles.resultText, { color: colors.textMuted }]}>{total} 条内容</Text>
+                <Text style={[styles.resultText, { color: colors.textMuted }]}>{page} / {pageCount}</Text>
               </View>
             </View>
           </View>
         }
         renderItem={({ item }) => (
           <View style={styles.cardCell}>
-            <VideoCard item={item} loading={detailLoadingId === item.id} onPress={onOpenVideo} />
+            <VideoCard item={item} loading={detailLoadingId === item.id} onPress={onOpenVideo} colors={colors} />
           </View>
         )}
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>没有找到相关内容</Text>
-              <Text style={styles.emptyText}>换个分类、关键词再试一下吧</Text>
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>没有找到相关内容</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>换个分类、关键词再试一下吧</Text>
             </View>
           ) : null
         }
@@ -120,7 +122,7 @@ export default function DiscoverScreen({
           loadingMore ? (
             <View style={styles.loadingMoreWrap}>
               <ActivityIndicator color={colors.textMuted} />
-              <Text style={styles.loadingMoreText}>加载中...</Text>
+              <Text style={[styles.loadingMoreText, { color: colors.textMuted }]}>加载中...</Text>
             </View>
           ) : page < pageCount ? (
             <View style={styles.footerSpace} />
@@ -132,10 +134,10 @@ export default function DiscoverScreen({
 
       {showToTop ? (
         <Pressable
-          style={[styles.toTopButton, { bottom: 58 + Math.max(insets.bottom, 8) }]}
+          style={[styles.toTopButton, { bottom: 58 + Math.max(insets.bottom, 8), backgroundColor: colors.overlayCard, borderColor: colors.border }]}
           onPress={() => listRef.current?.scrollToOffset?.({ offset: 0, animated: true })}
         >
-          <Text style={styles.toTopText}>↑</Text>
+          <Text style={[styles.toTopText, { color: colors.accentSoft }]}>↑</Text>
         </Pressable>
       ) : null}
     </View>
@@ -143,10 +145,7 @@ export default function DiscoverScreen({
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: "#f7fbff",
-  },
+  page: { flex: 1 },
   listContent: {
     paddingHorizontal: 10,
     paddingTop: 6,
@@ -189,7 +188,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     fontSize: 14,
-    color: "#111111",
     paddingVertical: 0,
   },
   clearIcon: {
@@ -204,7 +202,6 @@ const styles = StyleSheet.create({
   },
   clearIconText: {
     fontSize: 10,
-    color: colors.textSecondary,
     fontWeight: "bold",
     lineHeight: 12,
   },
@@ -219,7 +216,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   compactSearchBtnText: {
-    color: "#111111",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -242,7 +238,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   searchingFloatText: {
-    color: "#6a7da8",
     fontSize: 11,
     fontWeight: "600",
   },
@@ -259,12 +254,10 @@ const styles = StyleSheet.create({
     borderBottomColor: "#111111",
   },
   miniChipText: {
-    color: "#1b1f27",
     fontSize: 16,
     fontWeight: "500",
   },
   miniChipTextActive: {
-    color: "#111111",
     fontWeight: "700",
   },
   resultInfoRow: {
@@ -274,7 +267,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   resultText: {
-    color: "#7a8391",
     fontSize: 11,
   },
   emptyState: {
@@ -284,11 +276,9 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: colors.textPrimary,
   },
   emptyText: {
     marginTop: 6,
-    color: colors.textMuted,
     fontSize: 12,
   },
   loadingMoreWrap: {
@@ -300,7 +290,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingMoreText: {
-    color: colors.textMuted,
     fontSize: 12,
   },
   footerSpace: {
@@ -327,7 +316,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   toTopText: {
-    color: "#5f87f7",
     fontSize: 18,
     fontWeight: "700",
     lineHeight: 18,

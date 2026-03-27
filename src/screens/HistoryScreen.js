@@ -1,32 +1,39 @@
 import React from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { colors, screenStyles } from "../styles/theme";
+import { createScreenStyles, getTheme } from "../styles/theme";
 
-export default function HistoryScreen({ history = [], onBack, onOpenHistory }) {
+export default function HistoryScreen({ history = [], colors: themeColors, onBack, onOpenHistory }) {
+  const colors = themeColors || getTheme("light");
+  const screenStyles = createScreenStyles(colors);
+
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[styles.content, screenStyles.screenContent, { backgroundColor: colors.bgSoft }]} showsVerticalScrollIndicator={false}>
       <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backText}>‹ 返回</Text>
+        <Text style={[styles.backText, { color: colors.textPrimary }]}>‹ 返回</Text>
       </Pressable>
 
       {history.length ? (
         history.map((item) => (
-          <Pressable key={item.historyId || item.id} style={styles.listItem} onPress={() => onOpenHistory?.(item)}>
+          <Pressable
+            key={item.historyId || item.id}
+            style={[styles.listItem, { backgroundColor: colors.overlayCard, borderColor: colors.border }]}
+            onPress={() => onOpenHistory?.(item)}
+          >
             {item.pic ? <Image source={{ uri: item.pic }} style={styles.poster} /> : <View style={styles.posterFallback} />}
             <View style={styles.itemText}>
-              <Text style={styles.itemTitle} numberOfLines={1}>
+              <Text style={[styles.itemTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                 {item.name}
               </Text>
-              <Text style={styles.itemMeta} numberOfLines={1}>
+              <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
                 播放到 {item.episodeName || "未知集数"}
               </Text>
             </View>
-            <Text style={styles.itemArrow}>›</Text>
+            <Text style={[styles.itemArrow, { color: colors.textMuted }]}>›</Text>
           </Pressable>
         ))
       ) : (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>还没有播放记录</Text>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>还没有播放记录</Text>
         </View>
       )}
     </ScrollView>
@@ -35,16 +42,13 @@ export default function HistoryScreen({ history = [], onBack, onOpenHistory }) {
 
 const styles = StyleSheet.create({
   content: {
-    ...screenStyles.screenContent,
     paddingTop: 12,
-    backgroundColor: "#f7fbff",
   },
   backButton: {
     alignSelf: "flex-start",
     paddingVertical: 4,
   },
   backText: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -54,9 +58,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 12,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.76)",
     borderWidth: 1,
-    borderColor: "#e2eaf8",
   },
   poster: {
     width: 52,
@@ -74,18 +76,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemTitle: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: "700",
     lineHeight: 21,
   },
   itemMeta: {
     marginTop: 6,
-    color: colors.textMuted,
     fontSize: 12,
   },
   itemArrow: {
-    color: "#8a94a6",
     fontSize: 20,
     lineHeight: 20,
   },
@@ -93,7 +92,6 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   emptyTitle: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: "700",
   },

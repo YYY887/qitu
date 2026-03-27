@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useEvent } from "expo";
-import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import DramaPlayer from "../components/DramaPlayer";
 import { splitPlaySources } from "../lib/cms";
-import { colors } from "../styles/theme";
+import { getTheme } from "../styles/theme";
 
 function usePlayableUrl(rawUrl) {
   return useMemo(() => {
@@ -24,93 +23,32 @@ export default function DetailScreen({
   episode,
   detailLoadingId,
   isFavorite,
+  colors: themeColors,
   onToggleFavorite,
   onTrackHistory,
   onBack,
   onEpisodePick,
 }) {
+  const colors = themeColors || getTheme("light");
   const groups = useMemo(
     () => splitPlaySources(video?.playFrom || "", video?.playUrl || ""),
     [video]
   );
   const [episodePageMap, setEpisodePageMap] = useState({});
   const playableUrl = usePlayableUrl(episode?.url || "");
-  const player = useVideoPlayer(null);
-  const { status, error } = useEvent(player, "statusChange", {
-    status: player.status,
-    error: null,
-  });
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [introExpanded, setIntroExpanded] = useState(false);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 16 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-        onPanResponderMove: (_, gestureState) => {
-          if (gestureState.dx < 0) {
-            translateX.setValue(gestureState.dx);
-          }
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          if (gestureState.dx < -72) {
-            Animated.timing(translateX, {
-              toValue: -220,
-              duration: 160,
-              useNativeDriver: true,
-            }).start(() => {
-              translateX.setValue(0);
-              onBack();
-            });
-            return;
-          }
-
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 0,
-          }).start();
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 0,
-          }).start();
-        },
-      }),
-    [onBack, translateX]
-  );
-
-  useEffect(() => {
-    if (!playableUrl) {
-      return undefined;
+  const flatEpisodes = useMemo(() => groups.flatMap((group) => group.episodes), [groups]);
+  const nextEpisode = useMemo(() => {
+    if (!episode?.url) {
+      return flatEpisodes[0] || null;
     }
 
-    let cancelled = false;
+    const currentIndex = flatEpisodes.findIndex((item) => item.url === episode.url);
+    if (currentIndex < 0) {
+      return flatEpisodes[0] || null;
+    }
 
-    const load = async () => {
-      try {
-        await player.replaceAsync(playableUrl);
-        if (!cancelled) {
-          player.play();
-        }
-      } catch (error) {
-        /*
-         * 2026-03-26
-         * 详情页现在直接承载播放，切剧集时必须容忍旧播放器实例已经失效的瞬间。
-         * 这里不把切换时的 native 瞬时异常继续抛给界面，避免 iOS 上直接红屏。
-         */
-      }
-    };
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [player, playableUrl]);
+    return flatEpisodes[currentIndex + 1] || null;
+  }, [episode?.url, flatEpisodes]);
 
   useEffect(() => {
     if (!video?.id || !episode?.url) {
@@ -125,104 +63,58 @@ export default function DetailScreen({
   }, [video?.id]);
 
   return (
-    <Animated.View
-      style={[
-        styles.pageWrap,
-        {
-          transform: [{ translateX }],
-        },
-      ]}
-      {...panResponder.panHandlers}
-    >
-      <ScrollView style={styles.page} contentContainerStyle={styles.container}>
-        <View style={styles.playerNavBar}>
-          <Pressable style={styles.playerNavBack} onPress={onBack}>
-            <Text style={styles.playerNavBackText}>‹ 返回</Text>
-          </Pressable>
-          <Text style={styles.playerNavTitleDark} numberOfLines={1}>
-            {video?.name || "详情"}
-          </Text>
-          <View style={styles.playerNavSide} />
-        </View>
-
+    <View style={[styles.pageWrap, { backgroundColor: colors.bgSoft }]}>
+      <ScrollView style={[styles.page, { backgroundColor: colors.bgSoft }]} contentContainerStyle={styles.container}>
         <View style={styles.playerCard}>
-          <View style={styles.playerShell}>
-          {playableUrl ? (
-            <>
-              <VideoView
-                key={playableUrl}
-                style={styles.video}
-                player={player}
-                nativeControls
-                allowsPictureInPicture
-              />
-              {(status === "loading" || status === "idle") ? (
-                <View style={styles.playerOverlay}>
-                  <View style={styles.playerOverlayBadge}>
-                    <ActivityIndicator size="small" color="#111111" />
-                  </View>
-                </View>
-              ) : null}
-              {status === "error" ? (
-                <View style={styles.playerOverlay}>
-                  <View style={styles.playerErrorBadge}>
-                    <Text style={styles.playerErrorTitle}>当前线路加载失败</Text>
-                    <Text style={styles.playerErrorText} numberOfLines={2}>
-                      {error?.message || "可以切换其他剧集或线路再试"}
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <View style={styles.videoEmpty}>
-              <Text style={styles.videoEmptyText}>请选择剧集开始播放</Text>
-            </View>
-          )}
-          </View>
+          <DramaPlayer
+            source={playableUrl}
+            title={video?.name || "详情"}
+            onBack={onBack}
+            onNextEpisode={() => nextEpisode && onEpisodePick(nextEpisode)}
+            nextEpisodeLabel={nextEpisode ? "下一集" : "最后一集"}
+          />
         </View>
 
-        <View style={styles.panelTabs}>
-          <Text style={[styles.panelTabText, styles.panelTabTextActive]}>视频</Text>
+        <View style={[styles.panelTabs, { backgroundColor: colors.bgSoft, borderBottomColor: colors.borderSoft }]}>
+          <Text style={[styles.panelTabText, styles.panelTabTextActive, { color: colors.textPrimary }]}>视频</Text>
         </View>
 
-        <View style={styles.panelBody}>
+        <View style={[styles.panelBody, { backgroundColor: colors.bgSoft, borderBottomColor: colors.borderSoft }]}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{video?.name || "视频详情"}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{video?.name || "视频详情"}</Text>
             <View style={styles.titleActions}>
               <Pressable style={styles.favoriteButton} onPress={() => onToggleFavorite?.(video)}>
-                <Text style={[styles.favoriteButtonText, isFavorite && styles.favoriteButtonTextActive]}>
+                <Text
+                  style={[
+                    styles.favoriteButtonText,
+                    { color: colors.textMuted },
+                    isFavorite && styles.favoriteButtonTextActive,
+                    isFavorite && { color: colors.accent },
+                  ]}
+                >
                   {isFavorite ? "已收藏" : "收藏"}
                 </Text>
               </Pressable>
-              <Pressable style={styles.introButton} onPress={() => setIntroExpanded((current) => !current)}>
-                <Text style={styles.introButtonText}>{introExpanded ? "收起" : "简介 >"}</Text>
-              </Pressable>
             </View>
           </View>
-          <Text style={styles.meta}>
+          <Text style={[styles.meta, { color: colors.textSecondary }]}>
             {video?.year || "--"} / {video?.area || "未知地区"} / {video?.typeName || "未分类"}
           </Text>
-          {introExpanded ? (
-            <Text style={styles.introText}>
-              {video?.content || video?.remarks || "暂无简介"}
-            </Text>
-          ) : null}
         </View>
 
-        <View style={styles.panelBody}>
+        <View style={[styles.panelBody, { backgroundColor: colors.bgSoft, borderBottomColor: colors.borderSoft }]}>
           <View style={styles.episodeHeader}>
-            <Text style={styles.episodeHeaderTitle}>选集</Text>
-            <Text style={styles.episodeHeaderMeta}>{video?.remarks || ""}</Text>
+            <Text style={[styles.episodeHeaderTitle, { color: colors.textPrimary }]}>选集</Text>
+            <Text style={[styles.episodeHeaderMeta, { color: colors.textSecondary }]}>{video?.remarks || ""}</Text>
           </View>
           {groups.length ? (
             groups.map((group) => (
               <View key={group.id} style={styles.groupBlock}>
-                <View style={styles.sourceBar}>
-                  <Text style={styles.sourceBarText}>
+                <View style={[styles.sourceBar, { backgroundColor: colors.overlayCard, borderColor: colors.border }]}>
+                  <Text style={[styles.sourceBarText, { color: colors.textPrimary }]}>
                     {group.name} {group.episodes.length} 个视频
                   </Text>
-                  <Text style={styles.sourceBarAction}>切换资源</Text>
+                  <Text style={[styles.sourceBarAction, { color: colors.accentSoft }]}>切换资源</Text>
                 </View>
                 {group.episodes.length > 50 ? (
                   <ScrollView
@@ -241,7 +133,12 @@ export default function DetailScreen({
                       return (
                         <Pressable
                           key={`${group.id}-${start}-${end}`}
-                          style={[styles.pageRangeButton, selected && styles.pageRangeButtonActive]}
+                          style={[
+                            styles.pageRangeButton,
+                            { backgroundColor: colors.overlayCard, borderColor: colors.border },
+                            selected && styles.pageRangeButtonActive,
+                            selected && { backgroundColor: colors.card, borderColor: colors.accent },
+                          ]}
                           onPress={() =>
                             setEpisodePageMap((current) => ({
                               ...current,
@@ -249,7 +146,14 @@ export default function DetailScreen({
                             }))
                           }
                         >
-                          <Text style={[styles.pageRangeText, selected && styles.pageRangeTextActive]}>
+                          <Text
+                            style={[
+                              styles.pageRangeText,
+                              { color: colors.textMuted },
+                              selected && styles.pageRangeTextActive,
+                              selected && { color: colors.accentSoft },
+                            ]}
+                          >
                             {start}-{end}
                           </Text>
                         </Pressable>
@@ -272,10 +176,22 @@ export default function DetailScreen({
                     return (
                       <Pressable
                         key={item.id}
-                        style={[styles.episodeButton, active && styles.episodeButtonActive]}
+                        style={[
+                          styles.episodeButton,
+                          { backgroundColor: colors.overlayCard, borderColor: colors.border },
+                          active && styles.episodeButtonActive,
+                          active && { backgroundColor: colors.card, borderColor: colors.accent },
+                        ]}
                         onPress={() => onEpisodePick(item)}
                       >
-                        <Text style={[styles.episodeText, active && styles.episodeTextActive]} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.episodeText,
+                            { color: "#ffffff" },
+                            active && styles.episodeTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
                           {item.name}
                         </Text>
                       </Pressable>
@@ -285,14 +201,14 @@ export default function DetailScreen({
               </View>
             ))
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>暂无播放线路</Text>
-              <Text style={styles.emptyText}>这个源如果支持详情接口，再点一次通常会自动补全。</Text>
+            <View style={[styles.emptyState, { backgroundColor: colors.bgSoft }]}>
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>暂无播放线路</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>这个源如果支持详情接口，再点一次通常会自动补全。</Text>
             </View>
           )}
         </View>
       </ScrollView>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -308,95 +224,8 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: 32,
   },
-  playerNavBar: {
-    minHeight: 50,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#f7fbff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#edf2fb",
-  },
   playerCard: {
     backgroundColor: "#000000",
-  },
-  playerShell: {
-    aspectRatio: 16 / 9,
-    width: "100%",
-    backgroundColor: "#000",
-  },
-  playerNavBack: {
-    minWidth: 58,
-    height: 32,
-    justifyContent: "center",
-  },
-  playerNavBackText: {
-    color: "#111111",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  playerNavTitleDark: {
-    flex: 1,
-    textAlign: "center",
-    color: "#111111",
-    fontSize: 15,
-    fontWeight: "700",
-    marginHorizontal: 8,
-  },
-  playerNavSide: {
-    minWidth: 58,
-  },
-  video: {
-    width: "100%",
-    height: "100%",
-  },
-  playerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.18)",
-  },
-  playerOverlayBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    borderWidth: 1,
-    borderColor: "#dce3ef",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  playerErrorBadge: {
-    width: "78%",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.96)",
-    borderWidth: 1,
-    borderColor: "#f2d0cb",
-  },
-  playerErrorTitle: {
-    color: "#d65f51",
-    fontSize: 13,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-  playerErrorText: {
-    marginTop: 6,
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
-  },
-  videoEmpty: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  videoEmptyText: {
-    color: colors.textMuted,
-    fontSize: 13,
   },
   panelTabs: {
     flexDirection: "row",
@@ -567,22 +396,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   episodeTextActive: {
-    color: "#111111",
+    color: "#ffffff",
     fontWeight: "800",
   },
   emptyState: {
     alignItems: "center",
     paddingVertical: 24,
-    backgroundColor: "#f7fbff",
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: colors.textPrimary,
   },
   emptyText: {
     marginTop: 8,
-    color: colors.textMuted,
     fontSize: 12,
     textAlign: "center",
   },
