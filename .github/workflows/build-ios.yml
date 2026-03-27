@@ -70,6 +70,22 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 校验关键 Expo 依赖
+        run: |
+          set -euo pipefail
+
+          echo "workspace: $PWD"
+          node -v
+          pnpm -v
+
+          node -e "console.log('expo-screen-orientation =>', require.resolve('expo-screen-orientation/package.json'))"
+          node -e "console.log('expo-video =>', require.resolve('expo-video/package.json'))"
+          node -e "console.log('react-native-safe-area-context =>', require.resolve('react-native-safe-area-context/package.json'))"
+
+          test -f node_modules/expo-screen-orientation/package.json
+          test -f node_modules/expo-video/package.json
+          test -f node_modules/react-native-safe-area-context/package.json
+
       - name: 读取应用配置
         run: |
           set -euo pipefail
